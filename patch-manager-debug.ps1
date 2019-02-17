@@ -46,4 +46,4 @@ else
 #This calls the Patch Baseline operation manually with the -Debug option
 $psModuleInstallFile="C:\Program Files\Amazon\PatchBaselineOperations\Amazon.PatchBaselineOperations.dll"
 Import-Module $psModuleInstallFile
-Invoke-PatchBaselineOperation -Operation $patchingOperation -SnapshotId '' -InstanceId $instanceId -Region $region –Debug
+Invoke-PatchBaselineOperation -Operation $patchingOperation -SnapshotId '' -InstanceId $instanceId -Region $region -Debug
