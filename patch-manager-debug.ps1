@@ -1,11 +1,16 @@
+#Check PowerShell version, if less than version 5 inform user
+$desiredPowershellVersion = 5
+
+if ($PSVersionTable.PSVersion.Major -lt $desiredPowershellVersion){Write-Host "`nPowerShell less than version $desiredPowershellVersion detected, consider upgrading to version $desiredPowershellVersion!`n"}
+
 #Fetch instance details from meta-data
 $instanceId = (Invoke-WebRequest -UseBasicParsing -uri 'http://169.254.169.254/latest/meta-data/instance-id').Content
 $az = ((Invoke-WebRequest -UseBasicParsing -uri 'http://169.254.169.254/latest/meta-data/placement/availability-zone').Content)
 $region = $az.Substring(0,$az.Length-1)
-Write-Host $region
 
 #The operation to perform (Scan or Install)
 $patchingOperation = 'Scan'
+$patchBaselineModuleLocation = 'C:\Program Files\Amazon\PatchBaselineOperations'
 
 #This block tests S3 connectivity by attempting to download a PB snapshot
 Write-Host "Attempting to download a patch baseline snapshot from S3..."
@@ -17,16 +22,16 @@ if ($?) {write-Host ('File downloaded successfully from ' + $snap.SnapshotDownlo
 #If the Amazon.PatchBaselineOperations.dll file does not exist in "C:\Program Files\Amazon\PatchBaselineOperations", it can be downloaded from here
 #https://s3-<region>.amazonaws.com/aws-ssm-<region>/patchbaselineoperations/Amazon.PatchBaselineOperations-1.12.zip
 
-if (-not (Test-Path 'C:\Program Files\Amazon\PatchBaselineOperations'))
+if (-not (Test-Path $patchBaselineModuleLocation))
 {
     Write-Host "PatchBaselineOperations not found, downloading now..."
     if(-not ($region.Equals('us-east-1')))
     {
-        (New-Object Net.WebClient).DownloadFile("https://s3-$region.amazonaws.com/aws-ssm-$region/patchbaselineoperations/Amazon.PatchBaselineOperations-1.12.zip", "C:\Program Files\Amazon\PatchBaselineOperations.zip")
+        (New-Object Net.WebClient).DownloadFile("https://s3-$region.amazonaws.com/aws-ssm-$region/patchbaselineoperations/Amazon.PatchBaselineOperations-1.12.zip", "$patchBaselineModuleLocation.zip")
     }
     else
     {
-        (New-Object Net.WebClient).DownloadFile("https://s3.amazonaws.com/aws-ssm-$region/patchbaselineoperations/Amazon.PatchBaselineOperations-1.12.zip", "C:\Program Files\Amazon\PatchBaselineOperations.zip")
+        (New-Object Net.WebClient).DownloadFile("https://s3.amazonaws.com/aws-ssm-$region/patchbaselineoperations/Amazon.PatchBaselineOperations-1.12.zip", "$patchBaselineModuleLocation.zip")
     }
     
     Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -36,7 +41,7 @@ if (-not (Test-Path 'C:\Program Files\Amazon\PatchBaselineOperations'))
 
         [System.IO.Compression.ZipFile]::ExtractToDirectory($zipfile, $outpath)
     }
-    Unzip "C:\Program Files\Amazon\PatchBaselineOperations.zip" "C:\Program Files\Amazon\PatchBaselineOperations"
+    Unzip "$patchBaselineModuleLocation.zip" "$patchBaselineModuleLocation"
 }
 else
 {
@@ -44,6 +49,6 @@ else
 }
 
 #This calls the Patch Baseline operation manually with the -Debug option
-$psModuleInstallFile="C:\Program Files\Amazon\PatchBaselineOperations\Amazon.PatchBaselineOperations.dll"
+$psModuleInstallFile="$patchBaselineModuleLocation\Amazon.PatchBaselineOperations.dll"
 Import-Module $psModuleInstallFile
 Invoke-PatchBaselineOperation -Operation $patchingOperation -SnapshotId '' -InstanceId $instanceId -Region $region -Debug
